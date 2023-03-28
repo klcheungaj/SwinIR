@@ -27,6 +27,7 @@ class Mlp(nn.Module):
         x = self.drop(x)
         x = self.fc2(x)
         x = self.drop(x)
+        print(f"output shape of MLP: {x.shape}")
         return x
 
 
@@ -195,6 +196,7 @@ class SwinTransformerBlock(nn.Module):
             self.shift_size = 0
             self.window_size = min(self.input_resolution)
         assert 0 <= self.shift_size < self.window_size, "shift_size must in 0-window_size"
+        # print(f"shift_size in SwinTransformerBlock: {self.shift_size}")
 
         self.norm1 = norm_layer(dim)
         self.attn = WindowAttention(
@@ -252,14 +254,18 @@ class SwinTransformerBlock(nn.Module):
             shifted_x = x
 
         # partition windows
+        print(f"input shape of window_partition: {shifted_x.shape}")
         x_windows = window_partition(shifted_x, self.window_size)  # nW*B, window_size, window_size, C
+        print(f"output shape of window_partition: {x_windows.shape}")
         x_windows = x_windows.view(-1, self.window_size * self.window_size, C)  # nW*B, window_size*window_size, C
+        print(f"output shape after view: {x_windows.shape}")
 
         # W-MSA/SW-MSA (to be compatible for testing on images whose shapes are the multiple of window size
         if self.input_resolution == x_size:
             attn_windows = self.attn(x_windows, mask=self.attn_mask)  # nW*B, window_size*window_size, C
         else:
             attn_windows = self.attn(x_windows, mask=self.calculate_mask(x_size).to(x.device))
+        print(f"output shape of attention: {attn_windows.shape}")
 
         # merge windows
         attn_windows = attn_windows.view(-1, self.window_size, self.window_size, C)
@@ -375,7 +381,7 @@ class BasicLayer(nn.Module):
         self.input_resolution = input_resolution
         self.depth = depth
         self.use_checkpoint = use_checkpoint
-
+        print(f'input_resolution in BasicLayer: {self.input_resolution}')
         # build blocks
         self.blocks = nn.ModuleList([
             SwinTransformerBlock(dim=dim, input_resolution=input_resolution,
@@ -400,6 +406,7 @@ class BasicLayer(nn.Module):
                 x = checkpoint.checkpoint(blk, x, x_size)
             else:
                 x = blk(x, x_size)
+        print(f"output shape of the module list in BasicLayer: {x.shape}")
         if self.downsample is not None:
             x = self.downsample(x)
         return x
@@ -479,6 +486,7 @@ class RSTB(nn.Module):
             norm_layer=None)
 
     def forward(self, x, x_size):
+        print(f"input shape of RSTB: {x.shape}")
         return self.patch_embed(self.conv(self.patch_unembed(self.residual_group(x, x_size), x_size))) + x
 
     def flops(self):
@@ -788,6 +796,7 @@ class SwinIR(nn.Module):
         return x
 
     def forward_features(self, x):
+        print(f"input shape of forward_features: {x.shape}")
         x_size = (x.shape[2], x.shape[3])
         x = self.patch_embed(x)
         if self.ape:
